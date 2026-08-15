@@ -59,6 +59,77 @@ export function resultsEqual(actual, expected, orderMatters = false) {
   return JSON.stringify(normalizeResult(actual, orderMatters)) === JSON.stringify(normalizeResult(expected, orderMatters));
 }
 
+function countValues(values) {
+  const counts = new Map();
+  for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
+  return counts;
+}
+
+function subtractRows(sourceRows, comparisonRows) {
+  const available = countValues(comparisonRows.map((row) => JSON.stringify(row)));
+  return sourceRows.filter((row) => {
+    const key = JSON.stringify(row);
+    const count = available.get(key) || 0;
+    if (!count) return true;
+    available.set(key, count - 1);
+    return false;
+  });
+}
+
+function clippedValue(value) {
+  const text = value === null ? 'NULL' : String(value);
+  return text.length > 32 ? `${text.slice(0, 29)}…` : text;
+}
+
+function describeRows(label, rows, columns) {
+  const samples = rows.slice(0, 2).map((row) => row
+    .slice(0, 4)
+    .map((value, index) => `${columns[index] || `cột ${index + 1}`}=${clippedValue(value)}`)
+    .join(' · '));
+  const remaining = rows.length - samples.length;
+  return `${label}: ${samples.join(' | ')}${remaining > 0 ? ` (+${remaining} hàng khác)` : ''}.`;
+}
+
+export function describeResultDifference(actual, expected, orderMatters = false) {
+  const actualNormalized = normalizeResult(actual, true);
+  const expectedNormalized = normalizeResult(expected, true);
+  const actualColumns = actualNormalized.columns;
+  const expectedColumns = expectedNormalized.columns;
+  const messages = [];
+
+  if (actualNormalized.values.length !== expectedNormalized.values.length) {
+    messages.push(`Số hàng: kết quả của bạn ${actualNormalized.values.length}, đáp án ${expectedNormalized.values.length}.`);
+  }
+
+  const missingColumns = expectedColumns.filter((column) => !actualColumns.includes(column));
+  const extraColumns = actualColumns.filter((column) => !expectedColumns.includes(column));
+  if (missingColumns.length) messages.push(`Thiếu cột: ${missingColumns.join(', ')}.`);
+  if (extraColumns.length) messages.push(`Thừa cột: ${extraColumns.join(', ')}.`);
+
+  const sameColumnSet = missingColumns.length === 0
+    && extraColumns.length === 0
+    && actualColumns.length === expectedColumns.length;
+  const sameColumnOrder = JSON.stringify(actualColumns) === JSON.stringify(expectedColumns);
+  if (sameColumnSet && !sameColumnOrder) {
+    messages.push(`Thứ tự cột cần là: ${expectedColumns.join(', ')}.`);
+  }
+
+  if (sameColumnOrder) {
+    const missingRows = subtractRows(expectedNormalized.values, actualNormalized.values);
+    const extraRows = subtractRows(actualNormalized.values, expectedNormalized.values);
+    if (orderMatters && missingRows.length === 0 && extraRows.length === 0
+      && JSON.stringify(actualNormalized.values) !== JSON.stringify(expectedNormalized.values)) {
+      messages.push('Các hàng có dữ liệu đúng nhưng chưa đúng thứ tự yêu cầu.');
+    } else {
+      if (missingRows.length) messages.push(describeRows('Thiếu hàng', missingRows, expectedColumns));
+      if (extraRows.length) messages.push(describeRows('Hàng thừa hoặc sai', extraRows, actualColumns));
+    }
+  }
+
+  if (!messages.length) messages.push('Giá trị hoặc kiểu dữ liệu chưa khớp với kết quả mong đợi.');
+  return messages;
+}
+
 export async function getExpectedResult(exercise) {
   if (expectedResultCache.has(exercise.id)) return expectedResultCache.get(exercise.id);
   let db;
@@ -147,6 +218,7 @@ export async function gradeExercise(exercise, query) {
     return {
       correct,
       result: visible,
+      difference: correct ? null : describeResultDifference(actual, expected, exercise.orderMatters),
       message: correct
         ? 'Kết quả chính xác. Bài tập đã hoàn thành.'
         : 'Query chạy được nhưng kết quả chưa khớp yêu cầu.',

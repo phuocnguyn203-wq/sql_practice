@@ -48,6 +48,22 @@ describe('SQL grading engine', () => {
     const outcome = await gradeExercise(exercisesByChapter[7][0], 'SELECT id AS order_id, name AS customer_name, total_spent AS total FROM customers;');
     expect(outcome.correct).toBe(false);
     expect(outcome.error).not.toBe(true);
+    expect(outcome.difference?.join(' ')).toMatch(/Số hàng|Thiếu hàng|Hàng thừa/);
+  });
+
+  it('explains missing result columns without revealing solution SQL', async () => {
+    const outcome = await gradeExercise(exercisesByChapter[7][0], 'SELECT id AS order_id FROM orders;');
+    expect(outcome.correct).toBe(false);
+    expect(outcome.difference?.join(' ')).toMatch(/Thiếu cột: customer_name, total/);
+    expect(outcome.difference?.join(' ')).not.toContain('SELECT');
+  });
+
+  it('explains when correct rows are returned in the wrong order', async () => {
+    const exercise = exercisesByChapter[12][34];
+    const reversedQuery = exercise.solutionSql.replace('ORDER BY order_date,id;', 'ORDER BY order_date DESC,id DESC;');
+    const outcome = await gradeExercise(exercise, reversedQuery);
+    expect(outcome.correct).toBe(false);
+    expect(outcome.difference?.join(' ')).toMatch(/chưa đúng thứ tự/);
   });
 
   it('returns a readable SQL error', async () => {
@@ -55,6 +71,7 @@ describe('SQL grading engine', () => {
     expect(outcome.correct).toBe(false);
     expect(outcome.error).toBe(true);
     expect(outcome.message.length).toBeGreaterThan(0);
+    expect(outcome.difference).toBeUndefined();
   });
 
   it('blocks unsafe database attachment commands', async () => {

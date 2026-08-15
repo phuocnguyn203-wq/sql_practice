@@ -47,6 +47,16 @@ function ResultTable({ result }) {
   );
 }
 
+function ResultDifference({ messages }) {
+  if (!messages?.length) return null;
+  return (
+    <aside className="result-difference" aria-live="polite">
+      <strong>Khác với đáp án</strong>
+      <ul>{messages.map((message, index) => <li key={`${index}-${message}`}>{message}</li>)}</ul>
+    </aside>
+  );
+}
+
 function SchemaCard({ table }) {
   const columns = tableCatalog[table] || [];
   return (
@@ -250,7 +260,7 @@ function Lesson({ exercise, showReference, setShowReference, showSolution, setSh
   );
 }
 
-function Workspace({ exercise, query, setQuery, status, running, result, onRun, onHint, onReset }) {
+function Workspace({ exercise, query, setQuery, status, running, result, difference, onRun, onHint, onReset }) {
   function onKeyDown(event) {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       event.preventDefault();
@@ -298,11 +308,12 @@ function Workspace({ exercise, query, setQuery, status, running, result, onRun, 
           <button className="run-button" onClick={onRun} disabled={running}>{running ? 'Đang chạy…' : 'Chạy query'} <span>▶</span></button>
         </div>
       </div>
-      <div className="results-wrap">
+      <div className={`results-wrap ${difference?.length ? 'has-difference' : ''}`}>
         <div className="results-head">
           <span>Result ledger</span>
           <span>{result?.values?.length || 0} hàng · {result?.columns?.length || 0} cột</span>
         </div>
+        <ResultDifference messages={difference} />
         <div className="result-scroll"><ResultTable result={result} /></div>
       </div>
     </section>
@@ -319,6 +330,7 @@ export default function App() {
   const [query, setQueryState] = useState(() => drafts[selectedId] || exercise.starterSql);
   const [status, setStatus] = useState({ kind: 'ready', message: 'Sẵn sàng thực thi' });
   const [result, setResult] = useState(null);
+  const [difference, setDifference] = useState(null);
   const [running, setRunning] = useState(false);
   const [queryFilter, setQueryFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -347,6 +359,7 @@ export default function App() {
     setSelectedId(id);
     setQueryState(drafts[id] || nextExercise.starterSql);
     setResult(null);
+    setDifference(null);
     setStatus({ kind: 'ready', message: 'Sẵn sàng thực thi' });
     setShowSolution(false);
     setMobilePanel('lesson');
@@ -361,9 +374,11 @@ export default function App() {
   async function runQuery() {
     if (running) return;
     setRunning(true);
+    setDifference(null);
     setStatus({ kind: 'running', message: 'Đang thực thi trong database mới…' });
     const outcome = await gradeExercise(exercise, query);
     setResult(outcome.result);
+    setDifference(outcome.difference || null);
     setStatus({ kind: outcome.correct ? 'correct' : outcome.error ? 'error' : 'wrong', message: outcome.message });
     if (outcome.correct) {
       const next = new Set(completed).add(exercise.id);
@@ -408,7 +423,7 @@ export default function App() {
       <div className={`main-grid mobile-${mobilePanel}`}>
         <Sidebar chapter={exercise.chapter} selectedId={selectedId} completed={completed} queryFilter={queryFilter} setQueryFilter={setQueryFilter} levelFilter={levelFilter} setLevelFilter={setLevelFilter} onSelect={selectExercise} />
         <Lesson exercise={exercise} showReference={showReference} setShowReference={setShowReference} showSolution={showSolution} setShowSolution={setShowSolution} onUseSolution={() => { setQuery(exercise.solutionSql); setMobilePanel('editor'); }} />
-        <Workspace exercise={exercise} query={query} setQuery={setQuery} status={status} running={running} result={result} onRun={runQuery} onHint={showHint} onReset={() => { setQuery(exercise.starterSql); setResult(null); setStatus({ kind: 'ready', message: 'Đã đặt lại bài tập' }); }} />
+        <Workspace exercise={exercise} query={query} setQuery={setQuery} status={status} running={running} result={result} difference={difference} onRun={runQuery} onHint={showHint} onReset={() => { setQuery(exercise.starterSql); setResult(null); setDifference(null); setStatus({ kind: 'ready', message: 'Đã đặt lại bài tập' }); }} />
       </div>
 
       <div className="chapter-meter">
