@@ -1,6 +1,6 @@
 # Common Table · SQL Study Manual
 
-Ứng dụng luyện SQL tương tác bằng tiếng Việt, tập trung vào các chương 7, 8, 9, 10, 12 và 13 của *Practical SQL, 2nd Edition*.
+Ứng dụng luyện SQL tương tác bằng tiếng Việt.
 
 ## Tính năng
 
