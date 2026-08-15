@@ -34,7 +34,7 @@ function ResultTable({ result }) {
     );
   }
   return (
-    <table className="result-table">
+    <table className="result-table" style={{ minWidth: `${result.columns.length * 112}px` }}>
       <thead><tr>{result.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
       <tbody>
         {result.values.map((row, rowIndex) => (
