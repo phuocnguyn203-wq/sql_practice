@@ -47,11 +47,14 @@ function ResultTable({ result }) {
   );
 }
 
-function ResultDifference({ messages }) {
+function ResultDifference({ messages, onDismiss }) {
   if (!messages?.length) return null;
   return (
     <aside className="result-difference" aria-live="polite">
-      <strong>Khác với đáp án</strong>
+      <div className="result-difference-head">
+        <strong>Khác với đáp án</strong>
+        <button type="button" onClick={onDismiss} aria-label="Ẩn phần so sánh kết quả">Ẩn <span aria-hidden="true">×</span></button>
+      </div>
       <ul>{messages.map((message, index) => <li key={`${index}-${message}`}>{message}</li>)}</ul>
     </aside>
   );
@@ -260,7 +263,7 @@ function Lesson({ exercise, showReference, setShowReference, showSolution, setSh
   );
 }
 
-function Workspace({ exercise, query, setQuery, status, running, result, difference, onRun, onHint, onReset }) {
+function Workspace({ exercise, query, setQuery, status, running, result, difference, onDismissDifference, onRun, onHint, onReset }) {
   function onKeyDown(event) {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       event.preventDefault();
@@ -313,7 +316,7 @@ function Workspace({ exercise, query, setQuery, status, running, result, differe
           <span>Result ledger</span>
           <span>{result?.values?.length || 0} hàng · {result?.columns?.length || 0} cột</span>
         </div>
-        <ResultDifference messages={difference} />
+        <ResultDifference messages={difference} onDismiss={onDismissDifference} />
         <div className="result-scroll"><ResultTable result={result} /></div>
       </div>
     </section>
@@ -423,7 +426,7 @@ export default function App() {
       <div className={`main-grid mobile-${mobilePanel}`}>
         <Sidebar chapter={exercise.chapter} selectedId={selectedId} completed={completed} queryFilter={queryFilter} setQueryFilter={setQueryFilter} levelFilter={levelFilter} setLevelFilter={setLevelFilter} onSelect={selectExercise} />
         <Lesson exercise={exercise} showReference={showReference} setShowReference={setShowReference} showSolution={showSolution} setShowSolution={setShowSolution} onUseSolution={() => { setQuery(exercise.solutionSql); setMobilePanel('editor'); }} />
-        <Workspace exercise={exercise} query={query} setQuery={setQuery} status={status} running={running} result={result} difference={difference} onRun={runQuery} onHint={showHint} onReset={() => { setQuery(exercise.starterSql); setResult(null); setDifference(null); setStatus({ kind: 'ready', message: 'Đã đặt lại bài tập' }); }} />
+        <Workspace exercise={exercise} query={query} setQuery={setQuery} status={status} running={running} result={result} difference={difference} onDismissDifference={() => setDifference(null)} onRun={runQuery} onHint={showHint} onReset={() => { setQuery(exercise.starterSql); setResult(null); setDifference(null); setStatus({ kind: 'ready', message: 'Đã đặt lại bài tập' }); }} />
       </div>
 
       <div className="chapter-meter">

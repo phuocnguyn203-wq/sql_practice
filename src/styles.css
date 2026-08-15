@@ -205,7 +205,11 @@ button { color: inherit; }
 .results-wrap.has-difference { grid-template-rows: 34px auto minmax(0, 1fr); }
 .results-head { display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid #b8ac94; color: #70685b; background: #dfd4bf; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .result-difference { max-height: 105px; overflow: auto; padding: 8px 12px 9px; border-bottom: 1px solid #c7a7a2; background: #f2dfdc; scrollbar-color: #ad8581 #ead4d0; scrollbar-width: thin; }
-.result-difference strong { display: block; margin-bottom: 4px; color: var(--burgundy); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.result-difference-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.result-difference strong { color: var(--burgundy); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.result-difference button { flex: 0 0 auto; border: 0; background: transparent; padding: 1px 2px; color: var(--burgundy); cursor: pointer; font-size: 8px; text-transform: uppercase; }
+.result-difference button:hover { text-decoration: underline; }
+.result-difference button:focus-visible { outline: 1px solid var(--burgundy); outline-offset: 2px; }
 .result-difference ul { display: grid; gap: 2px; margin: 0; padding-left: 15px; color: #65504c; font-size: 9px; line-height: 1.4; }
 .result-scroll { min-width: 0; width: 100%; max-width: 100%; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-color: #a99d86 #e8dfcf; scrollbar-width: thin; }
 .result-scroll .result-table { width: max-content; min-width: 100%; }
