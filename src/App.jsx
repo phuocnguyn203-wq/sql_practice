@@ -305,6 +305,7 @@ function Workspace({ exercise, query, setQuery, status, running, result, onRun, 
 }
 
 export default function App() {
+  const [theme, setTheme] = useState(() => storage.read('ct-theme', window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [selectedId, setSelectedId] = useState(initialExerciseId);
   const exercise = getExercise(selectedId);
   const chapter = chapters.find((item) => item.id === exercise.chapter);
@@ -323,6 +324,11 @@ export default function App() {
   useEffect(() => {
     loadSqlEngine().then(() => setStatus({ kind: 'ready', message: 'SQLite đã sẵn sàng' })).catch(() => setStatus({ kind: 'error', message: 'Không thể tải máy SQL' }));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    storage.write('ct-theme', theme);
+  }, [theme]);
 
   function setQuery(value) {
     setQueryState(value);
@@ -370,11 +376,20 @@ export default function App() {
   const overallPercent = Math.round(completed.size / exercises.length * 100);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={theme}>
       <header className="topbar">
         <div className="brand">
           <div className="seal"><span>CT</span></div>
           <div><b>Common Table</b><span>SQL Study Manual</span></div>
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+            aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          >
+            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+          </button>
         </div>
         <nav className="chapter-nav" aria-label="Chọn chương">
           {chapters.map((item) => <button key={item.id} className={item.id === exercise.chapter ? 'active' : ''} onClick={() => selectChapter(item.id)}><span>{item.roman}</span><small>{item.short}</small></button>)}
