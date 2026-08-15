@@ -120,6 +120,10 @@ button { color: inherit; }
 .chapter-kicker { margin: 0; font-size: 10px; line-height: 1.5; color: var(--muted); }
 .ornament { width: 72px; height: 9px; border-top: 1px solid var(--burgundy); margin: 21px 0 19px; position: relative; }
 .ornament i { position: absolute; width: 4px; height: 4px; top: -2px; left: 32px; transform: rotate(45deg); background: var(--burgundy); }
+.context-block { margin: 0 0 17px; padding: 1px 0 1px 10px; border-left: 2px solid var(--rule); }
+.context-block h2 { margin: 0 0 5px; color: var(--brown); font-size: 8px; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; }
+.context-block p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.context-block + .lesson-section { margin-top: 0; }
 .lesson-section { margin-top: 19px; }
 .lesson-section h2 { margin: 0 0 9px; color: var(--brown); font-size: 9px; font-weight: 400; letter-spacing: .15em; text-transform: uppercase; }
 .task-box { border: 1px solid #aa9e85; background: #eee4ce; box-shadow: inset 0 0 18px rgba(103,80,49,.035); padding: 14px 15px 13px; }

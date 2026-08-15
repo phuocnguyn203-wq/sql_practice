@@ -202,6 +202,11 @@ function Lesson({ exercise, showReference, setShowReference, showSolution, setSh
         <p className="chapter-kicker">Chương {exercise.chapter} · {chapters.find((c) => c.id === exercise.chapter)?.title}</p>
         <div className="ornament"><i /></div>
 
+        <section className="context-block">
+          <h2>Bối cảnh</h2>
+          <p>{exercise.context}</p>
+        </section>
+
         <section className="lesson-section">
           <h2>Yêu cầu</h2>
           <div className="task-box">

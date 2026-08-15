@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chapters, exercises, exercisesByChapter } from '../src/data/exercises.js';
+import { exerciseContextCount } from '../src/data/exerciseContexts.js';
 import { getExpectedResult, getTablePreview, gradeExercise } from '../src/lib/grader.js';
 import { tableCatalog } from '../src/data/database.js';
 
@@ -16,6 +17,8 @@ describe('exercise catalog', () => {
     expect(new Set(exercises.map((exercise) => exercise.id)).size).toBe(exercises.length);
     for (const exercise of exercises) {
       expect(exercise.title.trim()).not.toBe('');
+      expect(exercise.context.trim()).not.toBe('');
+      expect(exercise.context.length).toBeLessThanOrEqual(120);
       expect(exercise.task.trim()).not.toBe('');
       expect(exercise.solutionSql.trim()).not.toBe('');
       expect(['beginner', 'intermediate', 'advanced']).toContain(exercise.level);
@@ -23,6 +26,11 @@ describe('exercise catalog', () => {
         expect(exercise.verifierSql?.trim()).not.toBe('');
       }
     }
+  });
+
+  it('provides a short, separate context for all 216 exercises', () => {
+    expect(exerciseContextCount).toBe(216);
+    expect(exercises.every((exercise) => exercise.context !== exercise.task)).toBe(true);
   });
 });
 
