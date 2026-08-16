@@ -90,6 +90,18 @@ describe('SQL grading engine', () => {
     expect(outcome.error).not.toBe(true);
   });
 
+  it('accepts an equivalent audit timestamp default using now()', async () => {
+    const exercise = exercisesByChapter[8][23];
+    const outcome = await gradeExercise(exercise, `
+      CREATE TABLE audit_entries (
+        id INTEGER PRIMARY KEY,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
+    `);
+    expect(outcome.correct, outcome.message).toBe(true);
+  });
+
   it('returns a readable SQL error', async () => {
     const outcome = await gradeExercise(exercisesByChapter[7][0], 'SELECT definitely_missing FROM orders;');
     expect(outcome.correct).toBe(false);

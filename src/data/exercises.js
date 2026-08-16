@@ -96,6 +96,42 @@ const tableInfo = (name) => `
   ORDER BY 1, 2, 3;`;
 const tableExists = (name) => `SELECT COUNT(*) AS exists_count FROM information_schema.tables WHERE table_schema='public' AND table_name='${name}';`;
 const indexExists = (name) => `SELECT COUNT(*) AS index_count FROM pg_indexes WHERE schemaname='public' AND indexname='${name}';`;
+const auditEntriesVerifier = `
+  WITH inserted AS (
+    INSERT INTO audit_entries (id, message)
+    VALUES (987654321, 'grader probe')
+    RETURNING created_at
+  )
+  SELECT
+    EXISTS (
+      SELECT 1
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_schema = tc.constraint_schema
+       AND kcu.constraint_name = tc.constraint_name
+      WHERE tc.table_schema = 'public'
+        AND tc.table_name = 'audit_entries'
+        AND tc.constraint_type = 'PRIMARY KEY'
+        AND kcu.column_name = 'id'
+    ) AS id_is_primary_key,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'audit_entries'
+        AND column_name = 'message'
+        AND data_type = 'text'
+        AND is_nullable = 'NO'
+    ) AS message_is_required,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'audit_entries'
+        AND column_name = 'created_at'
+        AND data_type IN ('timestamp without time zone', 'timestamp with time zone')
+        AND column_default IS NOT NULL
+    ) AS created_at_has_time_default,
+    ABS(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at::timestamptz))) < 5 AS default_uses_current_time
+  FROM inserted;`;
 
 const c8 = [
   exercise(8,1,{title:'Bảng mentors đầu tiên',task:'Tạo bảng mentors để lưu người cố vấn. id là khóa chính và name là thông tin bắt buộc.',tables:[],tags:['CREATE TABLE','PRIMARY KEY'],mode:'schema',starterSql:'CREATE TABLE mentors (\n  -- columns\n);',solutionSql:'CREATE TABLE mentors (id INTEGER PRIMARY KEY, name TEXT NOT NULL);',verifierSql:tableInfo('mentors'),hint:'Khai báo PRIMARY KEY ngay sau kiểu của id.'}),
@@ -121,7 +157,7 @@ const c8 = [
   exercise(8,21,{title:'Kênh khảo sát hợp lệ',task:"Tạo bảng feedback_queue. id là khóa chính; channel bắt buộc và chỉ nhận 'Web', 'Store' hoặc 'Phone'.",tables:[],tags:['CHECK'],mode:'schema',solutionSql:"CREATE TABLE feedback_queue (id INTEGER PRIMARY KEY, channel TEXT NOT NULL CHECK (channel IN ('Web','Store','Phone')));",verifierSql:tableInfo('feedback_queue'),hint:'Dùng CHECK (channel IN (...)).'}),
   exercise(8,22,{title:'Ghi chú giao hàng có quan hệ',level:'intermediate',task:'Tạo bảng delivery_notes với id làm khóa chính, shipment_id bắt buộc và note tùy chọn. Mỗi shipment hợp lệ chỉ có tối đa một ghi chú.',tables:['shipments'],tags:['FOREIGN KEY','UNIQUE'],mode:'schema',solutionSql:'CREATE TABLE delivery_notes (id INTEGER PRIMARY KEY, shipment_id INTEGER NOT NULL UNIQUE REFERENCES shipments(id), note TEXT);',verifierSql:tableInfo('delivery_notes'),hint:'Đặt UNIQUE và REFERENCES trên shipment_id.'}),
   exercise(8,23,{title:'Một sản phẩm mỗi danh sách',level:'intermediate',task:'Tạo bảng wish_items với list_id, product_id và added_at. product_id phải hợp lệ; cùng một sản phẩm không được lặp trong một list.',tables:['products'],tags:['FOREIGN KEY','UNIQUE'],mode:'schema',solutionSql:'CREATE TABLE wish_items (list_id INTEGER, product_id INTEGER REFERENCES products(id), added_at TEXT, UNIQUE(list_id, product_id));',verifierSql:tableInfo('wish_items'),hint:'UNIQUE ghép được khai báo ở cấp bảng.'}),
-  exercise(8,24,{title:'Thời điểm tạo mặc định',level:'intermediate',task:'Tạo bảng audit_entries. id là khóa chính, message bắt buộc và created_at tự nhận thời điểm hiện tại khi thêm hàng mới.',tables:[],tags:['DEFAULT','TIMESTAMP'],mode:'schema',solutionSql:'CREATE TABLE audit_entries (id INTEGER PRIMARY KEY, message TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);',verifierSql:tableInfo('audit_entries'),hint:'Dùng kiểu thời gian phù hợp cùng DEFAULT CURRENT_TIMESTAMP.'}),
+  exercise(8,24,{title:'Thời điểm tạo mặc định',level:'intermediate',task:'Tạo bảng audit_entries. id là khóa chính, message bắt buộc và created_at tự nhận thời điểm hiện tại khi thêm hàng mới.',tables:[],tags:['DEFAULT','TIMESTAMP'],mode:'schema',solutionSql:'CREATE TABLE audit_entries (id INTEGER PRIMARY KEY, message TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);',verifierSql:auditEntriesVerifier,hint:'Dùng một kiểu timestamp và đặt giá trị mặc định theo thời điểm hiện tại.'}),
   exercise(8,25,{title:'Mọi trường cốt lõi đều bắt buộc',task:'Tạo bảng warehouses với id làm khóa chính cùng code, city và capacity bắt buộc. Mỗi kho phải có code riêng.',tables:[],tags:['NOT NULL','UNIQUE'],mode:'schema',solutionSql:'CREATE TABLE warehouses (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, city TEXT NOT NULL, capacity INTEGER NOT NULL);',verifierSql:tableInfo('warehouses'),hint:'Khai báo NOT NULL riêng cho từng cột bắt buộc.'}),
   exercise(8,26,{title:'Thử xóa lan truyền',level:'intermediate',task:'Xóa đơn hàng id 105. Các order_items liên quan phải tự động bị xóa nhờ khóa ngoại hiện có.',tables:['orders','order_items'],tags:['DELETE','CASCADE'],mode:'mutation',solutionSql:'DELETE FROM orders WHERE id = 105;',verifierSql:'SELECT (SELECT COUNT(*) FROM orders WHERE id=105) AS orders_left, (SELECT COUNT(*) FROM order_items WHERE order_id=105) AS items_left;',displaySql:'SELECT id, order_id, product_id FROM order_items WHERE order_id=105;',hint:'Chỉ DELETE hàng cha; không cần tự xóa order_items.'}),
   exercise(8,27,{title:'Bảng địa chỉ thuộc khách hàng',level:'intermediate',task:'Tạo customer_addresses với id làm khóa chính, customer_id và address bắt buộc. Địa chỉ phải thuộc khách hợp lệ và tự bị xóa khi khách đó bị xóa.',tables:['customers'],tags:['FOREIGN KEY','CASCADE'],mode:'schema',solutionSql:'CREATE TABLE customer_addresses (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE, address TEXT NOT NULL);',verifierSql:tableInfo('customer_addresses'),hint:'Khóa ngoại nằm ở customer_id.'}),
