@@ -32,6 +32,13 @@ describe('exercise catalog', () => {
     expect(exerciseContextCount).toBe(216);
     expect(exercises.every((exercise) => exercise.context !== exercise.task)).toBe(true);
   });
+
+  it('keeps chapter 8 requirements outcome-focused instead of spelling out DDL syntax', () => {
+    const syntaxHeavy = /\b(INTEGER|TEXT|REAL|PRIMARY KEY|NOT NULL|UNIQUE|CHECK|REFERENCES|CREATE TABLE|SELECT \*|DEFAULT|ON DELETE|IS NOT NULL)\b/i;
+    for (const exercise of exercisesByChapter[8]) {
+      expect(exercise.task, exercise.id).not.toMatch(syntaxHeavy);
+    }
+  });
 });
 
 describe('SQL grading engine', () => {
