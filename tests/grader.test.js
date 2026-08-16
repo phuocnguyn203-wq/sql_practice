@@ -70,6 +70,29 @@ describe('exercise catalog', () => {
       expect(task, `8.${number} thiếu kiểu dữ liệu`).toMatch(/số nguyên|văn bản|số thực|mốc thời gian/);
     }
   });
+
+  it('defines commonly ambiguous calculated columns in plain language', () => {
+    const clarityRules = {
+      '7.36': [/budget_used_pct\s*=/i, /payroll\s*\/\s*budget/i],
+      '9.17': [/first_event.*occurred_at sớm nhất/i, /last_event.*occurred_at muộn nhất/i],
+      '9.19': [/line_count.*order_items/i, /distinct_orders.*order_id khác nhau/i],
+      '9.30': [/delivered_pct\s*=/i, /delivered_at.*tổng số lô/i],
+      '9.31': [/change_pct\s*=/i, /visits_2024.*visits_2023/i],
+      '12.18': [/hours_to_ship.*order_date.*shipped_at/i],
+      '12.31': [/first_event.*occurred_at sớm nhất/i, /last_event.*muộn nhất/i, /active_span_days.*24 giờ/i],
+      '13.08': [/mức salary khác nhau cao thứ hai/i],
+      '13.16': [/completed_orders.*status 'completed'/i],
+      '13.21': [/1 đến 10.*thứ tự tăng dần/i],
+      '13.26': [/từ 35.*hot/i, /từ 25.*warm/i, /từ 15.*mild/i],
+      '13.29': [/other_count.*khác cả/i],
+      '13.30': [/completed_pct\s*=/i, /tổng số đơn.*100/i],
+    };
+
+    for (const [id, patterns] of Object.entries(clarityRules)) {
+      const task = exercises.find((exercise) => exercise.id === id).task;
+      for (const pattern of patterns) expect(task, id).toMatch(pattern);
+    }
+  });
 });
 
 describe('SQL grading engine', () => {
@@ -208,6 +231,13 @@ describe('SQL grading engine', () => {
       const preview = await getExpectedResult(exercise);
       expect(preview.columns.length, exercise.id).toBeGreaterThan(0);
       expect(Array.isArray(preview.values), exercise.id).toBe(true);
+      if (exercise.mode === 'result') {
+        const normalizedTask = exercise.task.toLocaleLowerCase('vi');
+        for (const column of preview.columns) {
+          expect(normalizedTask, `${exercise.id} chưa nêu cột kết quả ${column}`)
+            .toContain(column.toLocaleLowerCase('vi'));
+        }
+      }
     }
   });
 

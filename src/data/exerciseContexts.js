@@ -229,8 +229,16 @@ const contextsByChapter = {
   ],
 };
 
+const clarifiedContexts = {
+  '12.01': 'Báo cáo cần gắn năm đặt hàng tương ứng cho từng đơn, chưa yêu cầu tổng hợp theo năm.',
+  '13.11': 'Tài chính muốn biết mức chi tiêu trung bình sau khi tổng hợp tổng đơn theo từng khách.',
+};
+
 export function getExerciseContext(chapter, number) {
-  return contextsByChapter[chapter]?.[number - 1] || 'Bài này chỉ luyện cú pháp SQL và không có bối cảnh nghiệp vụ riêng.';
+  const id = `${chapter}.${String(number).padStart(2, '0')}`;
+  return clarifiedContexts[id]
+    || contextsByChapter[chapter]?.[number - 1]
+    || 'Bài này chỉ luyện cú pháp SQL và không có bối cảnh nghiệp vụ riêng.';
 }
 
 export const exerciseContextCount = Object.values(contextsByChapter)
