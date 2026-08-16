@@ -1,6 +1,4 @@
 export const databaseSql = String.raw`
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE customers (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
@@ -8,7 +6,7 @@ CREATE TABLE customers (
   city TEXT NOT NULL,
   segment TEXT NOT NULL CHECK (segment IN ('Consumer', 'Corporate', 'Startup')),
   joined_at TEXT NOT NULL,
-  total_spent REAL NOT NULL DEFAULT 0
+  total_spent NUMERIC NOT NULL DEFAULT 0
 );
 
 INSERT INTO customers VALUES
@@ -30,7 +28,7 @@ CREATE TABLE products (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   category TEXT NOT NULL,
-  price REAL NOT NULL CHECK (price >= 0),
+  price NUMERIC NOT NULL CHECK (price >= 0),
   stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0)
 );
 
@@ -52,7 +50,7 @@ CREATE TABLE orders (
   customer_id INTEGER NOT NULL REFERENCES customers(id),
   order_date TEXT NOT NULL,
   status TEXT NOT NULL,
-  total REAL NOT NULL CHECK (total >= 0)
+  total NUMERIC NOT NULL CHECK (total >= 0)
 );
 
 INSERT INTO orders VALUES
@@ -74,7 +72,7 @@ CREATE TABLE order_items (
   order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   quantity INTEGER NOT NULL CHECK (quantity > 0),
-  unit_price REAL NOT NULL CHECK (unit_price >= 0)
+  unit_price NUMERIC NOT NULL CHECK (unit_price >= 0)
 );
 
 INSERT INTO order_items VALUES
@@ -91,7 +89,7 @@ INSERT INTO order_items VALUES
 CREATE TABLE departments (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
-  budget REAL NOT NULL
+  budget NUMERIC NOT NULL
 );
 INSERT INTO departments VALUES
   (1,'Engineering',600000),(2,'Sales',420000),(3,'Operations',310000),(4,'Design',240000),(5,'Research',360000),(6,'Legal',180000);
@@ -102,7 +100,7 @@ CREATE TABLE employees (
   department_id INTEGER REFERENCES departments(id),
   manager_id INTEGER REFERENCES employees(id),
   hire_date TEXT NOT NULL,
-  salary REAL NOT NULL,
+  salary NUMERIC NOT NULL,
   email TEXT
 );
 INSERT INTO employees VALUES
@@ -220,8 +218,8 @@ CREATE TABLE temperature_readings (
   id INTEGER PRIMARY KEY,
   city TEXT NOT NULL,
   observed_at TEXT NOT NULL,
-  max_temp REAL,
-  min_temp REAL
+  max_temp NUMERIC,
+  min_temp NUMERIC
 );
 INSERT INTO temperature_readings VALUES
   (1,'Da Nang','2024-01-15',27,20),(2,'Da Nang','2024-04-15',32,25),(3,'Da Nang','2024-07-15',35,27),(4,'Da Nang','2024-10-15',29,23),
@@ -234,16 +232,16 @@ CREATE INDEX events_occurred_idx ON events(occurred_at);
 `;
 
 export const tableCatalog = {
-  customers: ['id INTEGER PK', 'name TEXT', 'country TEXT', 'city TEXT', 'segment TEXT', 'joined_at TEXT', 'total_spent REAL'],
-  products: ['id INTEGER PK', 'name TEXT', 'category TEXT', 'price REAL', 'stock INTEGER'],
-  orders: ['id INTEGER PK', 'customer_id INTEGER FK', 'order_date TEXT', 'status TEXT', 'total REAL'],
-  order_items: ['id INTEGER PK', 'order_id INTEGER FK', 'product_id INTEGER FK', 'quantity INTEGER', 'unit_price REAL'],
-  departments: ['id INTEGER PK', 'name TEXT', 'budget REAL'],
-  employees: ['id INTEGER PK', 'name TEXT', 'department_id INTEGER FK', 'manager_id INTEGER FK', 'hire_date TEXT', 'salary REAL', 'email TEXT'],
+  customers: ['id INTEGER PK', 'name TEXT', 'country TEXT', 'city TEXT', 'segment TEXT', 'joined_at TEXT', 'total_spent NUMERIC'],
+  products: ['id INTEGER PK', 'name TEXT', 'category TEXT', 'price NUMERIC', 'stock INTEGER'],
+  orders: ['id INTEGER PK', 'customer_id INTEGER FK', 'order_date TEXT', 'status TEXT', 'total NUMERIC'],
+  order_items: ['id INTEGER PK', 'order_id INTEGER FK', 'product_id INTEGER FK', 'quantity INTEGER', 'unit_price NUMERIC'],
+  departments: ['id INTEGER PK', 'name TEXT', 'budget NUMERIC'],
+  employees: ['id INTEGER PK', 'name TEXT', 'department_id INTEGER FK', 'manager_id INTEGER FK', 'hire_date TEXT', 'salary NUMERIC', 'email TEXT'],
   libraries: ['id INTEGER PK', 'name TEXT', 'state TEXT', 'branch_type TEXT', 'visits_2023 INTEGER', 'visits_2024 INTEGER', 'staff INTEGER'],
   survey_responses: ['id INTEGER PK', 'region TEXT', 'channel TEXT', 'rating INTEGER', 'completed_at TEXT'],
   events: ['id INTEGER PK', 'user_id INTEGER FK', 'event_type TEXT', 'occurred_at TEXT', 'duration_minutes INTEGER'],
   shipments: ['id INTEGER PK', 'order_id INTEGER FK', 'shipped_at TEXT', 'delivered_at TEXT', 'carrier TEXT'],
   producers: ['id INTEGER PK', 'company TEXT', 'state TEXT', 'zip TEXT', 'activity TEXT', 'inspected_at TEXT'],
-  temperature_readings: ['id INTEGER PK', 'city TEXT', 'observed_at TEXT', 'max_temp REAL', 'min_temp REAL'],
+  temperature_readings: ['id INTEGER PK', 'city TEXT', 'observed_at TEXT', 'max_temp NUMERIC', 'min_temp NUMERIC'],
 };

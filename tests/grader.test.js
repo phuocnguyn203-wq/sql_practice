@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chapters, exercises, exercisesByChapter } from '../src/data/exercises.js';
 import { exerciseContextCount } from '../src/data/exerciseContexts.js';
-import { getExpectedResult, getTablePreview, gradeExercise } from '../src/lib/grader.js';
+import { createDatabase, getExpectedResult, getTablePreview, gradeExercise } from '../src/lib/grader.js';
 import { tableCatalog } from '../src/data/database.js';
 
 describe('exercise catalog', () => {
@@ -42,6 +42,16 @@ describe('exercise catalog', () => {
 });
 
 describe('SQL grading engine', () => {
+  it('runs an actual PostgreSQL engine', async () => {
+    const db = await createDatabase();
+    try {
+      const result = await db.query('SELECT version() AS engine_version;');
+      expect(result.rows[0].engine_version).toMatch(/^PostgreSQL /);
+    } finally {
+      await db.close();
+    }
+  });
+
   for (const chapter of chapters) {
     it(`accepts all official solutions in chapter ${chapter.id}`, async () => {
       for (const exercise of exercisesByChapter[chapter.id]) {

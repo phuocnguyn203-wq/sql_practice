@@ -10,7 +10,7 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'code-editor', test: /node_modules\/(?:@uiw|@codemirror|@lezer)\// },
-            { name: 'sql-engine', test: /node_modules\/sql\.js\// },
+            { name: 'sql-engine', test: /node_modules\/@electric-sql\/pglite\// },
           ],
         },
       },
@@ -19,6 +19,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],
-    testTimeout: 30000,
+    testTimeout: 240000,
   },
 });

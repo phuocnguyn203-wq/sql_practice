@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
-import { sql, SQLite } from '@codemirror/lang-sql';
+import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { chapters, exercises, exercisesByChapter, getExercise } from './data/exercises.js';
@@ -9,7 +9,7 @@ import { getExpectedResult, getTablePreview, gradeExercise, loadSqlEngine } from
 import { sqlEditorTheme, sqlSyntaxHighlighting } from './lib/editorTheme.js';
 
 const levelLabels = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
-const sqlEditorExtensions = [sql({ dialect: SQLite }), keymap.of([indentWithTab]), sqlSyntaxHighlighting];
+const sqlEditorExtensions = [sql({ dialect: PostgreSQL }), keymap.of([indentWithTab]), sqlSyntaxHighlighting];
 const storage = {
   read(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -275,11 +275,11 @@ function Workspace({ exercise, query, setQuery, status, running, result, differe
   return (
     <section className="workspace app-panel">
       <div className="workspace-head">
-        <div><span className="eyebrow">SQL Workspace</span><b>SQLite · bộ nhớ tạm</b></div>
+        <div><span className="eyebrow">SQL Workspace</span><b>PostgreSQL · bộ nhớ tạm</b></div>
         <span className="shortcut">Ctrl ↵ để chạy</span>
       </div>
       <div className="editor-wrap">
-        <div className="editor-label"><span>query.sql</span><span>UTF-8 · SQL</span></div>
+        <div className="editor-label"><span>query.sql</span><span>UTF-8 · PostgreSQL</span></div>
         <div className="sql-editor" onKeyDownCapture={onKeyDown}>
           <CodeMirror
             key={exercise.id}
@@ -342,7 +342,7 @@ export default function App() {
   const [mobilePanel, setMobilePanel] = useState('lesson');
 
   useEffect(() => {
-    loadSqlEngine().then(() => setStatus({ kind: 'ready', message: 'SQLite đã sẵn sàng' })).catch(() => setStatus({ kind: 'error', message: 'Không thể tải máy SQL' }));
+    loadSqlEngine().then(() => setStatus({ kind: 'ready', message: 'PostgreSQL đã sẵn sàng' })).catch(() => setStatus({ kind: 'error', message: 'Không thể tải máy SQL' }));
   }, []);
 
   useEffect(() => {

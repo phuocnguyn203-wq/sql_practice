@@ -1,46 +1,60 @@
-import initSqlJs from 'sql.js';
-import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
+import { PGlite } from '@electric-sql/pglite';
 import { databaseSql, tableCatalog } from '../data/database.js';
 
-let sqlPromise;
+let enginePromise;
+let canonicalDatabasePromise;
+let databaseSnapshotPromise;
 const expectedResultCache = new Map();
+const expectedGradeCache = new Map();
 const tablePreviewCache = new Map();
 
 export function loadSqlEngine() {
-  if (!sqlPromise) {
-    const resolvedWasmUrl = typeof window === 'undefined' && typeof process !== 'undefined' && wasmUrl.startsWith('/')
-      ? `${process.cwd()}${wasmUrl}`
-      : wasmUrl;
-    sqlPromise = initSqlJs({ locateFile: () => resolvedWasmUrl });
-  }
-  return sqlPromise;
+  if (!enginePromise) enginePromise = getCanonicalDatabase().then(() => true);
+  return enginePromise;
 }
 
-export async function createDatabase() {
-  const SQL = await loadSqlEngine();
-  const db = new SQL.Database();
-  db.run(databaseSql);
+async function initializeDatabase() {
+  const db = await PGlite.create({ dataDir: 'memory://' });
+  await db.exec(databaseSql);
   return db;
 }
 
-function lastResult(results) {
-  return results.length ? results[results.length - 1] : { columns: [], values: [] };
+function getCanonicalDatabase() {
+  if (!canonicalDatabasePromise) canonicalDatabasePromise = initializeDatabase();
+  return canonicalDatabasePromise;
 }
 
-function preparedResult(db, sql) {
-  const statement = db.prepare(sql);
-  try {
-    const columns = statement.getColumnNames();
-    const values = [];
-    while (statement.step()) values.push(statement.get());
-    return { columns, values };
-  } finally {
-    statement.free();
+function getDatabaseSnapshot() {
+  if (!databaseSnapshotPromise) {
+    databaseSnapshotPromise = getCanonicalDatabase().then((db) => db.dumpDataDir());
   }
+  return databaseSnapshotPromise;
+}
+
+export async function createDatabase() {
+  await loadSqlEngine();
+  const snapshot = await getDatabaseSnapshot();
+  return PGlite.create({ dataDir: 'memory://', loadDataDir: snapshot });
+}
+
+function toResult(result) {
+  const columns = (result?.fields || []).map((field) => field.name);
+  const values = (result?.rows || []).map((row) => (Array.isArray(row) ? row : columns.map((column) => row[column])));
+  return { columns, values };
+}
+
+function lastResult(results) {
+  return results.length ? toResult(results[results.length - 1]) : { columns: [], values: [] };
+}
+
+function execute(db, sql) {
+  return db.exec(sql, { rowMode: 'array' });
 }
 
 function cleanValue(value) {
   if (typeof value === 'number') return Math.round(value * 1e8) / 1e8;
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) return value.toISOString();
   return value;
 }
 
@@ -49,9 +63,7 @@ export function normalizeResult(result, orderMatters = false) {
     columns: (result?.columns || []).map((column) => column.toLowerCase()),
     values: (result?.values || []).map((row) => row.map(cleanValue)),
   };
-  if (!orderMatters) {
-    normalized.values.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  }
+  if (!orderMatters) normalized.values.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return normalized;
 }
 
@@ -77,8 +89,8 @@ function subtractRows(sourceRows, comparisonRows) {
 }
 
 function clippedValue(value) {
-  const text = value === null ? 'NULL' : String(value);
-  return text.length > 32 ? `${text.slice(0, 29)}…` : text;
+  const valueText = value === null ? 'NULL' : String(value);
+  return valueText.length > 32 ? `${valueText.slice(0, 29)}…` : valueText;
 }
 
 function describeRows(label, rows, columns) {
@@ -110,9 +122,7 @@ export function describeResultDifference(actual, expected, orderMatters = false)
     && extraColumns.length === 0
     && actualColumns.length === expectedColumns.length;
   const sameColumnOrder = JSON.stringify(actualColumns) === JSON.stringify(expectedColumns);
-  if (sameColumnSet && !sameColumnOrder) {
-    messages.push(`Thứ tự cột cần là: ${expectedColumns.join(', ')}.`);
-  }
+  if (sameColumnSet && !sameColumnOrder) messages.push(`Thứ tự cột cần là: ${expectedColumns.join(', ')}.`);
 
   if (sameColumnOrder) {
     const missingRows = subtractRows(expectedNormalized.values, actualNormalized.values);
@@ -130,30 +140,44 @@ export function describeResultDifference(actual, expected, orderMatters = false)
   return messages;
 }
 
-export async function getExpectedResult(exercise) {
-  if (expectedResultCache.has(exercise.id)) return expectedResultCache.get(exercise.id);
+async function getExpectedGradeResult(exercise) {
+  if (expectedGradeCache.has(exercise.id)) return expectedGradeCache.get(exercise.id);
+  if (exercise.mode !== 'mutation' && exercise.mode !== 'schema') {
+    const db = await getCanonicalDatabase();
+    const result = lastResult(await execute(db, exercise.solutionSql));
+    expectedGradeCache.set(exercise.id, result);
+    expectedResultCache.set(exercise.id, result);
+    return result;
+  }
   let db;
   try {
     db = await createDatabase();
-    const solutionRun = db.exec(exercise.solutionSql);
-    if (exercise.displaySql) {
-      const displayed = lastResult(db.exec(exercise.displaySql));
-      if (displayed.columns.length) {
-        expectedResultCache.set(exercise.id, displayed);
-        return displayed;
-      }
-    }
-    if (exercise.mode === 'mutation' || exercise.mode === 'schema') {
-      const verified = lastResult(db.exec(exercise.verifierSql));
-      expectedResultCache.set(exercise.id, verified);
-      return verified;
-    }
-    const result = lastResult(solutionRun);
-    const completeResult = result.columns.length ? result : preparedResult(db, exercise.solutionSql);
-    expectedResultCache.set(exercise.id, completeResult);
-    return completeResult;
+    const solutionRun = await execute(db, exercise.solutionSql);
+    const result = exercise.mode === 'mutation' || exercise.mode === 'schema'
+      ? lastResult(await execute(db, exercise.verifierSql))
+      : lastResult(solutionRun);
+    expectedGradeCache.set(exercise.id, result);
+    return result;
   } finally {
-    db?.close();
+    await db?.close();
+  }
+}
+
+export async function getExpectedResult(exercise) {
+  if (expectedResultCache.has(exercise.id)) return expectedResultCache.get(exercise.id);
+  if (exercise.mode !== 'mutation' && exercise.mode !== 'schema') return getExpectedGradeResult(exercise);
+  let db;
+  try {
+    db = await createDatabase();
+    const solutionRun = await execute(db, exercise.solutionSql);
+    let result;
+    if (exercise.displaySql) result = lastResult(await execute(db, exercise.displaySql));
+    else if (exercise.mode === 'mutation' || exercise.mode === 'schema') result = lastResult(await execute(db, exercise.verifierSql));
+    else result = lastResult(solutionRun);
+    expectedResultCache.set(exercise.id, result);
+    return result;
+  } finally {
+    await db?.close();
   }
 }
 
@@ -163,20 +187,20 @@ export async function getTablePreview(table) {
   let db;
   try {
     db = await createDatabase();
-    const data = lastResult(db.exec(`SELECT * FROM "${table}" LIMIT 50;`));
-    const count = lastResult(db.exec(`SELECT COUNT(*) AS total_rows FROM "${table}";`));
-    const preview = { ...data, totalRows: count.values[0]?.[0] || 0 };
+    const data = lastResult(await execute(db, `SELECT * FROM "${table}" LIMIT 50;`));
+    const count = lastResult(await execute(db, `SELECT COUNT(*) AS total_rows FROM "${table}";`));
+    const preview = { ...data, totalRows: Number(count.values[0]?.[0] || 0) };
     tablePreviewCache.set(table, preview);
     return preview;
   } finally {
-    db?.close();
+    await db?.close();
   }
 }
 
 function validateQuery(query) {
   if (!query.trim()) throw new Error('Hãy nhập câu lệnh SQL trước khi chạy.');
   if (query.length > 12000) throw new Error('Query quá dài cho phòng lab này.');
-  const blocked = /\b(attach|detach|load_extension|writable_schema)\b/i;
+  const blocked = /\b(attach|detach|copy\s+[^;]+\s+program|create\s+extension|alter\s+system|pg_read_file|pg_write_file|lo_import|lo_export|dblink)\b/i;
   if (blocked.test(query)) throw new Error('Lệnh này bị khóa để giữ môi trường thực hành an toàn.');
 }
 
@@ -184,36 +208,19 @@ export async function gradeExercise(exercise, query) {
   try {
     validateQuery(query);
   } catch (error) {
-    return {
-      correct: false,
-      result: { columns: [], values: [] },
-      message: error.message,
-      error: true,
-    };
+    return { correct: false, result: { columns: [], values: [] }, message: error.message, error: true };
   }
 
   let userDb;
-  let expectedDb;
   try {
     userDb = await createDatabase();
-    expectedDb = await createDatabase();
-    const userRun = userDb.exec(query);
-    expectedDb.exec(exercise.solutionSql);
-
-    let actual;
-    let expected;
-    if (exercise.mode === 'mutation' || exercise.mode === 'schema') {
-      actual = lastResult(userDb.exec(exercise.verifierSql));
-      expected = lastResult(expectedDb.exec(exercise.verifierSql));
-    } else {
-      actual = lastResult(userRun);
-      expected = lastResult(expectedDb.exec(exercise.solutionSql));
-    }
-
+    const userRun = await execute(userDb, query);
+    const actual = exercise.mode === 'mutation' || exercise.mode === 'schema'
+      ? lastResult(await execute(userDb, exercise.verifierSql))
+      : lastResult(userRun);
+    const expected = await getExpectedGradeResult(exercise);
     const correct = resultsEqual(actual, expected, exercise.orderMatters);
-    const visible = exercise.displaySql
-      ? lastResult(userDb.exec(exercise.displaySql))
-      : actual;
+    const visible = exercise.displaySql ? lastResult(await execute(userDb, exercise.displaySql)) : actual;
 
     return {
       correct,
@@ -231,7 +238,6 @@ export async function gradeExercise(exercise, query) {
       error: true,
     };
   } finally {
-    userDb?.close();
-    expectedDb?.close();
+    await userDb?.close();
   }
 }

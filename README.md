@@ -6,7 +6,7 @@
 
 - 216 bài tập, đúng 36 bài cho mỗi chương.
 - Ba mức độ: cơ bản, trung cấp và nâng cao.
-- SQLite chạy trong bộ nhớ của trình duyệt; mỗi lần chấm dùng một database sạch.
+- PostgreSQL chạy trong trình duyệt bằng PGlite; mỗi lần chấm dùng một database sạch trong bộ nhớ.
 - Chấm theo kết quả hoặc trạng thái database, không bắt buộc query giống đáp án mẫu.
 - Hỗ trợ SELECT, JOIN, DDL, UPDATE, DELETE, transaction, date/time, subquery, CTE và CASE.
 - Lưu tiến độ và bản nháp query trong trình duyệt.
@@ -32,6 +32,6 @@ npm run build
 
 Bản build tĩnh nằm trong `dist/` và có thể phục vụ bằng `npm run preview`.
 
-## Ghi chú về SQL dialect
+## SQL dialect
 
-Sách sử dụng PostgreSQL. Phòng lab dùng SQLite/WASM để chạy hoàn toàn cục bộ, vì vậy các bài đã được chuyển sang cú pháp SQLite tương đương (ví dụ `strftime()` và `julianday()` cho ngày giờ). Mục tiêu kiến thức của từng chương vẫn được giữ nguyên.
+Phòng lab thực thi PostgreSQL thật được biên dịch sang WebAssembly bằng PGlite. Các bài ngày giờ dùng cú pháp PostgreSQL như `TO_CHAR`, `EXTRACT`, `DATE_TRUNC` và `INTERVAL`.
