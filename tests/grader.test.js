@@ -133,6 +133,54 @@ describe('SQL grading engine', () => {
     expect(outcome.correct, outcome.message).toBe(true);
   });
 
+  it('accepts equivalent PostgreSQL schema syntax throughout chapter 8', async () => {
+    const cases = [
+      {
+        exercise: exercisesByChapter[8][0],
+        sql: 'CREATE TABLE mentors (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL);',
+      },
+      {
+        exercise: exercisesByChapter[8][3],
+        sql: 'CREATE TABLE services (id BIGINT PRIMARY KEY, name VARCHAR NOT NULL, fee NUMERIC NOT NULL CHECK (fee > 0));',
+      },
+      {
+        exercise: exercisesByChapter[8][4],
+        sql: "CREATE TABLE tickets (id BIGINT PRIMARY KEY, subject VARCHAR NOT NULL, status VARCHAR NOT NULL DEFAULT 'open');",
+      },
+      {
+        exercise: exercisesByChapter[8][31],
+        sql: `
+          CREATE TABLE change_log (
+            id INTEGER PRIMARY KEY,
+            table_name TEXT NOT NULL,
+            row_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            changed_at TIMESTAMPTZ DEFAULT now()
+          );
+        `,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const outcome = await gradeExercise(testCase.exercise, testCase.sql);
+      expect(outcome.correct, `${testCase.exercise.id}: ${outcome.message}\n${outcome.difference?.join('\n') || ''}`).toBe(true);
+    }
+  });
+
+  it('still rejects missing or incorrect defaults required by an exercise', async () => {
+    const wrongTicketDefault = await gradeExercise(
+      exercisesByChapter[8][4],
+      "CREATE TABLE tickets (id INTEGER PRIMARY KEY, subject TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'closed');",
+    );
+    expect(wrongTicketDefault.correct).toBe(false);
+
+    const missingChangeLogDefault = await gradeExercise(
+      exercisesByChapter[8][31],
+      'CREATE TABLE change_log (id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, row_id INTEGER NOT NULL, action TEXT NOT NULL, changed_at TIMESTAMP);',
+    );
+    expect(missingChangeLogDefault.correct).toBe(false);
+  });
+
   it('returns a readable SQL error', async () => {
     const outcome = await gradeExercise(exercisesByChapter[7][0], 'SELECT definitely_missing FROM orders;');
     expect(outcome.correct).toBe(false);

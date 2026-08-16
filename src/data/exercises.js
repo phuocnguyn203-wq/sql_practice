@@ -73,14 +73,52 @@ const c7 = [
   exercise(7,36,{title:'Tỷ trọng ngân sách lương',level:'advanced',task:'Trả về department_name, payroll và budget_used_pct (làm tròn 1 chữ số) cho phòng có nhân viên.',tables:['departments','employees'],tags:['JOIN','SUM','MATH'],solutionSql:'SELECT d.name AS department_name, SUM(e.salary) AS payroll, ROUND(SUM(e.salary) * 100.0 / d.budget, 1) AS budget_used_pct FROM departments d JOIN employees e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget;',hint:'Nhóm theo phòng và chia SUM(salary) cho budget.'}),
 ];
 
-const tableInfo = (name) => `
+const sqlTypeFamily = `CASE
+           WHEN c.data_type IN ('smallint', 'integer', 'bigint') THEN 'integer'
+           WHEN c.data_type IN ('real', 'double precision', 'numeric', 'decimal') THEN 'numeric'
+           WHEN c.data_type IN ('text', 'character varying', 'character') THEN 'text'
+           WHEN c.data_type IN ('timestamp without time zone', 'timestamp with time zone') THEN 'timestamp'
+           ELSE c.data_type
+         END`;
+
+const stripEquivalentTypeCasts = (sql) => `regexp_replace(
+           ${sql},
+           '::(smallint|integer|bigint|real|double precision|numeric|decimal|text|character varying|character|timestamp with time zone|timestamp without time zone|timestamp|timestamptz)',
+           '',
+           'gi'
+         )`;
+
+const tableInfo = (name, defaultColumns = []) => {
+  const requestedDefaults = defaultColumns.length > 0
+    ? `
+  UNION ALL
+  SELECT 'default', c.column_name,
+         CASE
+           WHEN lower(COALESCE(c.column_default, '')) ~ '^(current_timestamp|now\\(\\))$'
+             THEN 'current_timestamp'
+           ELSE ${stripEquivalentTypeCasts("lower(COALESCE(c.column_default, ''))")}
+         END
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = '${name}'
+    AND c.column_name IN (${defaultColumns.map((column) => `'${column}'`).join(', ')})`
+    : '';
+
+  return `
   SELECT 'column' AS kind,
          LPAD(c.ordinal_position::text, 3, '0') || ':' || c.column_name AS item,
-         c.data_type || '|' || c.is_nullable || '|' || COALESCE(c.column_default, '') AS detail
+         ${sqlTypeFamily} || '|' || c.is_nullable AS detail
   FROM information_schema.columns c
   WHERE c.table_schema = 'public' AND c.table_name = '${name}'
+  ${requestedDefaults}
   UNION ALL
-  SELECT 'constraint', con.contype::text, pg_get_constraintdef(con.oid, true)
+  SELECT 'constraint', con.contype::text,
+         regexp_replace(
+           ${stripEquivalentTypeCasts('lower(pg_get_constraintdef(con.oid, true))')},
+           '\\s+',
+           ' ',
+           'g'
+         )
   FROM pg_constraint con
   JOIN pg_class rel ON rel.oid = con.conrelid
   JOIN pg_namespace ns ON ns.oid = rel.relnamespace
@@ -94,6 +132,7 @@ const tableInfo = (name) => `
   WHERE ns.nspname = 'public' AND rel.relname = '${name}'
     AND NOT EXISTS (SELECT 1 FROM pg_constraint con WHERE con.conindid = i.indexrelid)
   ORDER BY 1, 2, 3;`;
+};
 const tableExists = (name) => `SELECT COUNT(*) AS exists_count FROM information_schema.tables WHERE table_schema='public' AND table_name='${name}';`;
 const indexExists = (name) => `SELECT COUNT(*) AS index_count FROM pg_indexes WHERE schemaname='public' AND indexname='${name}';`;
 const auditEntriesVerifier = `
@@ -119,7 +158,7 @@ const auditEntriesVerifier = `
       WHERE table_schema = 'public'
         AND table_name = 'audit_entries'
         AND column_name = 'message'
-        AND data_type = 'text'
+        AND data_type IN ('text', 'character varying', 'character')
         AND is_nullable = 'NO'
     ) AS message_is_required,
     EXISTS (
@@ -138,7 +177,7 @@ const c8 = [
   exercise(8,2,{title:'Khóa tự nhiên cho mã quốc gia',task:'Tạo bảng country_codes gồm code và country_name, đều là văn bản. code là khóa chính; country_name bắt buộc.',tables:[],tags:['CREATE TABLE','NATURAL KEY'],mode:'schema',solutionSql:'CREATE TABLE country_codes (code TEXT PRIMARY KEY, country_name TEXT NOT NULL);',verifierSql:tableInfo('country_codes'),hint:'Ở đây code là khóa tự nhiên.'}),
   exercise(8,3,{title:'Mã khóa học không trùng',task:'Tạo bảng courses: id là số nguyên và khóa chính; code là văn bản bắt buộc, không trùng; title là văn bản bắt buộc.',tables:[],tags:['UNIQUE','NOT NULL'],mode:'schema',solutionSql:'CREATE TABLE courses (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, title TEXT NOT NULL);',verifierSql:tableInfo('courses'),hint:'UNIQUE tạo một ràng buộc duy nhất cho code.'}),
   exercise(8,4,{title:'Phí dịch vụ phải dương',task:'Tạo bảng services: id là số nguyên và khóa chính; name là văn bản bắt buộc; fee là số thực bắt buộc và phải lớn hơn 0.',tables:[],tags:['CHECK'],mode:'schema',solutionSql:'CREATE TABLE services (id INTEGER PRIMARY KEY, name TEXT NOT NULL, fee REAL NOT NULL CHECK (fee > 0));',verifierSql:tableInfo('services'),hint:'Dùng một ràng buộc để ngăn fee bằng 0 hoặc âm.'}),
-  exercise(8,5,{title:'Trạng thái mặc định',task:"Tạo bảng tickets: id là số nguyên và khóa chính; subject, status là văn bản bắt buộc. status mặc định là 'open'.",tables:[],tags:['DEFAULT'],mode:'schema',solutionSql:"CREATE TABLE tickets (id INTEGER PRIMARY KEY, subject TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open');",verifierSql:tableInfo('tickets'),hint:'DEFAULT đặt sau NOT NULL.'}),
+  exercise(8,5,{title:'Trạng thái mặc định',task:"Tạo bảng tickets: id là số nguyên và khóa chính; subject, status là văn bản bắt buộc. status mặc định là 'open'.",tables:[],tags:['DEFAULT'],mode:'schema',solutionSql:"CREATE TABLE tickets (id INTEGER PRIMARY KEY, subject TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open');",verifierSql:tableInfo('tickets', ['status']),hint:'DEFAULT đặt sau NOT NULL.'}),
   exercise(8,6,{title:'Khóa ngoại cho bài học',level:'intermediate',task:'Tạo courses_live với id là số nguyên và khóa chính. Sau đó tạo lessons: id là số nguyên và khóa chính; course_id là số nguyên bắt buộc, trỏ tới courses_live.id; title là văn bản bắt buộc.',tables:[],tags:['FOREIGN KEY'],mode:'schema',solutionSql:'CREATE TABLE courses_live (id INTEGER PRIMARY KEY); CREATE TABLE lessons (id INTEGER PRIMARY KEY, course_id INTEGER NOT NULL REFERENCES courses_live(id), title TEXT NOT NULL);',verifierSql:tableInfo('lessons'),hint:'Có thể chạy hai CREATE TABLE, ngăn bằng dấu chấm phẩy.'}),
   exercise(8,7,{title:'Xóa lan truyền bình luận',level:'intermediate',task:'Tạo posts với id là số nguyên và khóa chính. Tạo comments với id là số nguyên và khóa chính, post_id là số nguyên bắt buộc trỏ tới posts.id; xóa post phải tự xóa comment liên quan.',tables:[],tags:['FOREIGN KEY','CASCADE'],mode:'schema',solutionSql:'CREATE TABLE posts (id INTEGER PRIMARY KEY); CREATE TABLE comments (id INTEGER PRIMARY KEY, post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE);',verifierSql:tableInfo('comments'),hint:'Thêm ON DELETE CASCADE sau REFERENCES posts(id).'}),
   exercise(8,8,{title:'Khóa ghép đăng ký',level:'intermediate',task:'Tạo enrollments: student_id và course_id là số nguyên; enrolled_at là văn bản bắt buộc. Cặp student_id, course_id là khóa chính.',tables:[],tags:['COMPOSITE KEY'],mode:'schema',solutionSql:'CREATE TABLE enrollments (student_id INTEGER, course_id INTEGER, enrolled_at TEXT NOT NULL, PRIMARY KEY (student_id, course_id));',verifierSql:tableInfo('enrollments'),hint:'Khai báo PRIMARY KEY (student_id, course_id) ở cấp bảng.'}),
@@ -164,12 +203,12 @@ const c8 = [
   exercise(8,28,{title:'Index tìm khách theo thành phố',task:'Trên customers, tạo chỉ mục thường tên customers_city_idx chỉ gồm cột city.',tables:['customers'],tags:['INDEX'],mode:'schema',solutionSql:'CREATE INDEX customers_city_idx ON customers(city);',verifierSql:tableInfo('customers'),hint:'Index phù hợp với cột thường dùng trong WHERE.'}),
   exercise(8,29,{title:'Index thư viện theo bang và loại',level:'intermediate',task:'Trên libraries, tạo chỉ mục thường tên libraries_state_type_idx gồm state trước, branch_type sau.',tables:['libraries'],tags:['COMPOSITE INDEX'],mode:'schema',solutionSql:'CREATE INDEX libraries_state_type_idx ON libraries(state, branch_type);',verifierSql:tableInfo('libraries'),hint:'Thứ tự cột là state trước, branch_type sau.'}),
   exercise(8,30,{title:'Tạo rồi gỡ index thử nghiệm',level:'intermediate',task:'Trong cùng một lần chạy, tạo chỉ mục thường temp_rating_idx trên survey_responses.rating, sau đó gỡ chỉ mục này trước khi kết thúc.',tables:['survey_responses'],tags:['CREATE INDEX','DROP INDEX'],mode:'schema',solutionSql:'CREATE INDEX temp_rating_idx ON survey_responses(rating); DROP INDEX temp_rating_idx;',verifierSql:indexExists('temp_rating_idx'),hint:'Ngăn hai câu lệnh bằng dấu chấm phẩy.'}),
-  exercise(8,31,{title:'Cờ ưu tiên mặc định',task:'Thêm vào orders cột priority kiểu số nguyên. Cột này bắt buộc và mặc định là 0.',tables:['orders'],tags:['ALTER TABLE','DEFAULT'],mode:'schema',solutionSql:'ALTER TABLE orders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;',verifierSql:tableInfo('orders'),hint:'ADD COLUMN priority INTEGER NOT NULL DEFAULT 0.'}),
-  exercise(8,32,{title:'Nhật ký thay đổi',level:'intermediate',task:'Tạo change_log: id là số nguyên và khóa chính; table_name, action là văn bản bắt buộc; row_id là số nguyên bắt buộc; changed_at là mốc thời gian tự nhận thời điểm hiện tại.',tables:[],tags:['CREATE TABLE','DEFAULT'],mode:'schema',solutionSql:'CREATE TABLE change_log (id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, row_id INTEGER NOT NULL, action TEXT NOT NULL, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);',verifierSql:tableInfo('change_log'),hint:'Xác định rõ các cột NOT NULL và giá trị mặc định.'}),
+  exercise(8,31,{title:'Cờ ưu tiên mặc định',task:'Thêm vào orders cột priority kiểu số nguyên. Cột này bắt buộc và mặc định là 0.',tables:['orders'],tags:['ALTER TABLE','DEFAULT'],mode:'schema',solutionSql:'ALTER TABLE orders ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;',verifierSql:tableInfo('orders', ['priority']),hint:'ADD COLUMN priority INTEGER NOT NULL DEFAULT 0.'}),
+  exercise(8,32,{title:'Nhật ký thay đổi',level:'intermediate',task:'Tạo change_log: id là số nguyên và khóa chính; table_name, action là văn bản bắt buộc; row_id là số nguyên bắt buộc; changed_at là mốc thời gian tự nhận thời điểm hiện tại.',tables:[],tags:['CREATE TABLE','DEFAULT'],mode:'schema',solutionSql:'CREATE TABLE change_log (id INTEGER PRIMARY KEY, table_name TEXT NOT NULL, row_id INTEGER NOT NULL, action TEXT NOT NULL, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);',verifierSql:tableInfo('change_log', ['changed_at']),hint:'Xác định rõ các cột NOT NULL và giá trị mặc định.'}),
   exercise(8,33,{title:'Bảng khách doanh nghiệp',task:"Tạo corporate_customers với cùng các cột và kiểu dữ liệu như customers, nhưng chỉ sao chép các hàng có segment 'Corporate'. Không cần sao chép khóa, ràng buộc hay chỉ mục.",tables:['customers'],tags:['CREATE TABLE AS'],mode:'schema',solutionSql:"CREATE TABLE corporate_customers AS SELECT * FROM customers WHERE segment='Corporate';",verifierSql:'SELECT * FROM corporate_customers ORDER BY id;',hint:'CREATE TABLE tên AS SELECT ... WHERE ...'}),
   exercise(8,34,{title:'Bản sao rỗng để nhập liệu',level:'intermediate',task:'Tạo products_import với cùng tên cột và kiểu dữ liệu như products nhưng không có hàng nào. Không cần sao chép khóa, ràng buộc hay chỉ mục.',tables:['products'],tags:['CREATE TABLE AS'],mode:'schema',solutionSql:'CREATE TABLE products_import AS SELECT * FROM products WHERE FALSE;',verifierSql:"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='products_import' UNION ALL SELECT 'row_count', COUNT(*)::text FROM products_import;",hint:'Dùng một điều kiện luôn sai để tạo tập kết quả rỗng.'}),
   exercise(8,35,{title:'Bảng khoảng giá không chồng logic',level:'advanced',task:'Tạo price_ranges: id là số nguyên và khóa chính; label là văn bản bắt buộc, không trùng; min_price, max_price là số thực bắt buộc. Mỗi max_price phải lớn hơn min_price cùng hàng.',tables:[],tags:['CHECK','UNIQUE'],mode:'schema',solutionSql:'CREATE TABLE price_ranges (id INTEGER PRIMARY KEY, label TEXT NOT NULL UNIQUE, min_price REAL NOT NULL, max_price REAL NOT NULL, CHECK (max_price > min_price));',verifierSql:tableInfo('price_ranges'),hint:'Ràng buộc CHECK ở cấp bảng có thể so sánh hai cột.'}),
-  exercise(8,36,{title:'Mô hình đơn hàng tối giản',level:'advanced',task:"Tạo mini_orders: id là số nguyên và khóa chính; customer_id là số nguyên bắt buộc, trỏ tới customers.id; status là văn bản bắt buộc, mặc định 'draft' và chỉ nhận draft, paid, cancelled; created_at là mốc thời gian bắt buộc, mặc định thời điểm hiện tại.",tables:['customers'],tags:['PK','FK','CHECK','DEFAULT'],mode:'schema',solutionSql:"CREATE TABLE mini_orders (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id), status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','paid','cancelled')), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);",verifierSql:tableInfo('mini_orders'),hint:'Ghép bốn loại ràng buộc trong một CREATE TABLE.'}),
+  exercise(8,36,{title:'Mô hình đơn hàng tối giản',level:'advanced',task:"Tạo mini_orders: id là số nguyên và khóa chính; customer_id là số nguyên bắt buộc, trỏ tới customers.id; status là văn bản bắt buộc, mặc định 'draft' và chỉ nhận draft, paid, cancelled; created_at là mốc thời gian bắt buộc, mặc định thời điểm hiện tại.",tables:['customers'],tags:['PK','FK','CHECK','DEFAULT'],mode:'schema',solutionSql:"CREATE TABLE mini_orders (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id), status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','paid','cancelled')), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);",verifierSql:tableInfo('mini_orders', ['status', 'created_at']),hint:'Ghép bốn loại ràng buộc trong một CREATE TABLE.'}),
 ];
 
 const c9 = [
