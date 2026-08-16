@@ -39,6 +39,37 @@ describe('exercise catalog', () => {
       expect(exercise.task, exercise.id).not.toMatch(syntaxHeavy);
     }
   });
+
+  it('states columns and data types for every from-scratch schema task in chapter 8', () => {
+    const expectedColumns = {
+      1: ['id', 'name'],
+      2: ['code', 'country_name'],
+      3: ['id', 'code', 'title'],
+      4: ['id', 'name', 'fee'],
+      5: ['id', 'subject', 'status'],
+      6: ['id', 'course_id', 'title'],
+      7: ['id', 'post_id'],
+      8: ['student_id', 'course_id', 'enrolled_at'],
+      9: ['list_id', 'list_name', 'created_at'],
+      19: ['id', 'rating', 'note'],
+      20: ['id', 'title', 'minimum_salary'],
+      21: ['id', 'channel'],
+      22: ['id', 'shipment_id', 'note'],
+      23: ['list_id', 'product_id', 'added_at'],
+      24: ['id', 'message', 'created_at'],
+      25: ['id', 'code', 'city', 'capacity'],
+      27: ['id', 'customer_id', 'address'],
+      32: ['id', 'table_name', 'row_id', 'action', 'changed_at'],
+      35: ['id', 'label', 'min_price', 'max_price'],
+      36: ['id', 'customer_id', 'status', 'created_at'],
+    };
+
+    for (const [number, columns] of Object.entries(expectedColumns)) {
+      const task = exercisesByChapter[8][Number(number) - 1].task;
+      for (const column of columns) expect(task, `8.${number} thiếu ${column}`).toContain(column);
+      expect(task, `8.${number} thiếu kiểu dữ liệu`).toMatch(/số nguyên|văn bản|số thực|mốc thời gian/);
+    }
+  });
 });
 
 describe('SQL grading engine', () => {
