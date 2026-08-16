@@ -41,7 +41,7 @@ const contextsByChapter = {
     'Một chương trình cố vấn mới cần bảng tối thiểu để lưu người hướng dẫn.',
     'Hệ thống địa lý cần dùng mã quốc gia làm định danh ổn định.',
     'Nền tảng đào tạo cần ngăn hai khóa học dùng cùng một mã.',
-    'Danh mục dịch vụ cần chặn mức phí âm ngay từ cấu trúc bảng.',
+    'Danh mục dịch vụ không chấp nhận mức phí bằng 0 hoặc âm.',
     'Hệ thống hỗ trợ muốn ticket mới tự bắt đầu ở trạng thái open.',
     'Nền tảng học tập cần bảo đảm mỗi bài học thuộc một khóa học hợp lệ.',
     'Diễn đàn muốn bình luận tự biến mất khi bài viết cha bị xóa.',

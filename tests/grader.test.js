@@ -66,6 +66,13 @@ describe('SQL grading engine', () => {
     expect(outcome.difference?.join(' ')).toMatch(/chưa đúng thứ tự/);
   });
 
+  it('rejects a services fee rule that still allows zero', async () => {
+    const exercise = exercisesByChapter[8][3];
+    const outcome = await gradeExercise(exercise, 'CREATE TABLE services (id INTEGER PRIMARY KEY, name TEXT NOT NULL, fee REAL NOT NULL CHECK (fee >= 0));');
+    expect(outcome.correct).toBe(false);
+    expect(outcome.error).not.toBe(true);
+  });
+
   it('returns a readable SQL error', async () => {
     const outcome = await gradeExercise(exercisesByChapter[7][0], 'SELECT definitely_missing FROM orders;');
     expect(outcome.correct).toBe(false);
